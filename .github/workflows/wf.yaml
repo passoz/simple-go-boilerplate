@@ -1,0 +1,55 @@
+name: Go test
+
+on: push
+
+jobs: 
+  
+  build:
+    
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.3'
+
+      - name: Version
+        run: go version
+
+      - name: Install dependencies
+        run: go get .
+
+      - name: Build
+        run: go build -o main -v ./...
+      
+      - name: Test with the Go CLI
+        run: go test
+
+      - name: UUID
+        run: go install github.com/timwmillard/uuid@latest
+
+      - name: Image name
+        run: |
+          echo "IMAGE_NAME=ttl.sh/$(uuid):1m" >> $GITHUB_ENV
+
+      - name: Docker
+        run: docker buildx build -f Containerfile -t ${{ env.IMAGE_NAME }} .
+
+      - name: Push
+        run: docker push ${{ env.IMAGE_NAME }}
+
+      - name: executing remote ssh commands using password
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            docker container inspect gotestact > /dev/null &&
+              docker container rm gotestact &&
+              docker run --name gotestact ${{ env.IMAGE_NAME }} ||
+              docker run --name gotestact ${{ env.IMAGE_NAME }}
