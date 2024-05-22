@@ -1,0 +1,4 @@
+services:
+  
+  goilerplate:
+    image: ${IMAGE_NAME}

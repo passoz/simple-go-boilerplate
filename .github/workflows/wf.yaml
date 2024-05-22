@@ -16,12 +16,6 @@ jobs:
         with:
           go-version: '1.22.3'
 
-      - name: Version
-        run: go version
-
-      - name: Install dependencies
-        run: go get .
-
       - name: Build
         run: go build -o main -v ./...
       
@@ -41,6 +35,19 @@ jobs:
       - name: Push
         run: docker push ${{ env.IMAGE_NAME }}
 
+      - name: Persist image name
+        run: echo ${{ env.IMAGE_NAME }} > imgname.tmp
+
+      - name: copy file via ssh password
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.PORT }}
+          source: "imgname.tmp,compose.yml"
+          target: ~/goilerplate_deploy
+
       - name: executing remote ssh commands using password
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -49,7 +56,6 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT }}
           script: |
-            docker container inspect gotestact > /dev/null &&
-              docker container rm gotestact &&
-              docker run --name gotestact ${{ env.IMAGE_NAME }} ||
-              docker run --name gotestact ${{ env.IMAGE_NAME }}
+            cd goilerplate_deploy
+            echo "IMAGE_NAME="$(cat imgname.tmp) > .env
+            docker compose up
